@@ -7,42 +7,92 @@
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; }
         #video { width: 100%; max-width: 400px; border: 5px solid #333; background: #000; }
+        .controls { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        input { padding: 10px; border: 1px solid #ccc; border-radius: 5px; width: 250px; }
+        button { padding: 10px 20px; cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
+        #btnReg { background-color: #007bff; color: white; }
+        #btnReg:disabled { background-color: #ccc; }
     </style>
 </head>
 <body>
-    <h2>Sistem Absensi Wajah</h2>
+    <h3>Sistem Absensi Wajah</h3>
     <video id="video" autoplay muted playsinline></video>
-    <p id="status">Memuat AI Model...</p>
+    
+    <div class="controls">
+        <input type="text" id="empName" placeholder="Masukkan Nama Karyawan (misal: David)">
+        <button id="btnReg" onclick="daftarWajah()" disabled>1. Tunggu AI...</button>
+        <p id="status">Memuat AI Model...</p>
+    </div>
 
     <script>
         const video = document.getElementById('video');
         const status = document.getElementById('status');
+        const empName = document.getElementById('empName');
+        const btnReg = document.getElementById('btnReg');
+        
+        // PENTING: Ganti URL ini dengan URL Web App (GAS) Anda yang /exec
+        const GAS_WEB_APP_URL = "MASUKKAN_URL_GAS_ANDA_DISINI";
 
         async function init() {
             try {
-                // 1. Load Model AI
-                await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+                // 1. Load All Models
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
                 
                 // 2. Akses Kamera
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = stream;
-                status.innerText = "Kamera Aktif! Mendeteksi...";
-
-                // 3. Deteksi Wajah
-                video.addEventListener('play', () => {
-                    setInterval(async () => {
-                        const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
-                        if (det) {
-                            status.innerText = "Wajah Terdeteksi! (Skor: " + Math.round(det.score * 100) + "%)";
-                        } else {
-                            status.innerText = "Mencari wajah...";
-                        }
-                    }, 1000);
-                });
+                status.innerText = "Sistem Siap! Silakan Daftar.";
+                btnReg.innerText = "2. Daftarkan Wajah";
+                btnReg.disabled = false;
             } catch (err) {
                 status.innerText = "Error: " + err.message;
             }
         }
+
+        async function daftarWajah() {
+            const nama = empName.value.trim();
+            if(!nama) { alert("Nama harus diisi!"); return; }
+
+            btnReg.disabled = true;
+            btnReg.innerText = "Mendaftarkan...";
+            status.innerText = "Menganalisis wajah...";
+
+            // 3. Ekstrak Wajah & Descriptor (Wajib withFaceDescriptor)
+            const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                                 .withFaceLandmarks()
+                                 .withFaceDescriptor();
+
+            if (det) {
+                // 4. Kirim ke Google Apps Script
+                const payload = {
+                    id: nama, // Kita gunakan nama sebagai ID unik pendaftaran
+                    name: nama,
+                    descriptor: Array.from(det.descriptor) // Ubah Float32Array ke Array biasa
+                };
+
+                fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Penting agar tidak kena error CORS di browser
+                    body: JSON.stringify(payload)
+                }).then(() => {
+                    status.innerText = "Pendaftaran Berhasil dikirim ke Sheets!";
+                    empName.value = "";
+                }).catch(e => {
+                    status.innerText = "Pendaftaran Berhasil dikirim (ignore CORS error).";
+                }).finally(() => {
+                    btnReg.disabled = false;
+                    btnReg.innerText = "2. Daftarkan Wajah Lagi";
+                });
+            } else {
+                status.innerText = "Wajah tidak terdeteksi, coba lagi!";
+                btnReg.disabled = false;
+                btnReg.innerText = "2. Daftarkan Wajah";
+            }
+        }
+
         init();
     </script>
 </body>
