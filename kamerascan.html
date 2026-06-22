@@ -1,29 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Sistem Absensi</title>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; }
-        #video { width: 100%; max-width: 500px; border: 5px solid #333; background: #000; }
+        #video { width: 100%; max-width: 400px; border: 5px solid #333; background: #000; }
     </style>
 </head>
 <body>
-    <h2>Uji Kamera Berhasil</h2>
+    <h2>Sistem Absensi Wajah</h2>
     <video id="video" autoplay muted playsinline></video>
-    <p id="status">Membuka kamera...</p>
+    <p id="status">Memuat AI Model...</p>
 
     <script>
         const video = document.getElementById('video');
-        async function start() {
+        const status = document.getElementById('status');
+
+        async function init() {
             try {
+                // 1. Load Model AI
+                await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+                
+                // 2. Akses Kamera
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = stream;
-                document.getElementById('status').innerText = "Kamera Aktif!";
+                status.innerText = "Kamera Aktif! Mendeteksi...";
+
+                // 3. Deteksi Wajah
+                video.addEventListener('play', () => {
+                    setInterval(async () => {
+                        const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+                        if (det) {
+                            status.innerText = "Wajah Terdeteksi! (Skor: " + Math.round(det.score * 100) + "%)";
+                        } else {
+                            status.innerText = "Mencari wajah...";
+                        }
+                    }, 1000);
+                });
             } catch (err) {
-                document.getElementById('status').innerText = "Error: " + err.message;
+                status.innerText = "Error: " + err.message;
             }
         }
-        start();
+        init();
     </script>
 </body>
 </html>
