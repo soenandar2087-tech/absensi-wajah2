@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistem Absensi</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; }
+        #video { width: 100%; max-width: 500px; border: 5px solid #333; background: #000; }
+    </style>
+</head>
+<body>
+    <h2>Uji Kamera Berhasil</h2>
+    <video id="video" autoplay muted playsinline></video>
+    <p id="status">Membuka kamera...</p>
+
+    <script>
+        const video = document.getElementById('video');
+        async function start() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                document.getElementById('status').innerText = "Kamera Aktif!";
+            } catch (err) {
+                document.getElementById('status').innerText = "Error: " + err.message;
+            }
+        }
+        start();
+    </script>
+</body>
+</html>
