@@ -15,60 +15,71 @@
 <body>
     <h2>Sistem Absensi Wajah</h2>
     <video id="video" autoplay muted playsinline></video><br>
-    <input type="text" id="name" placeholder="Nama Karyawan (Untuk Daftar)" style="padding: 8px; width: 250px;">
+    <input type="text" id="name" placeholder="Nama Karyawan" style="padding: 8px; width: 250px;">
     
     <div class="controls">
         <button onclick="sendAction('register')">1. Daftar Wajah</button>
         <button onclick="sendAction('scan')">2. Scan Absensi</button>
     </div>
     
-    <h2 id="result">Siap...</h2>
+    <h2 id="result">Menunggu...</h2>
 
     <script>
         const video = document.getElementById('video');
         const GAS_URL = "https://script.google.com/macros/s/AKfycbw9o2R1Cd38rYTl-k4f5H2z3q6hVwM4B0faN-ik2JlaGHtZk0wa1xJZiHuvlXdc32z_/exec";
 
         async function init() {
-            document.getElementById('result').innerText = "Memuat AI...";
-            await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-            await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-            await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
-            document.getElementById('result').innerText = "Siap digunakan!";
+            const resEl = document.getElementById('result');
+            try {
+                resEl.innerText = "Memuat AI...";
+                // Pastikan path model sesuai dengan yang disediakan vladmandic
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+                resEl.innerText = "Siap digunakan!";
+            } catch (err) {
+                resEl.innerText = "Error: " + err.message;
+            }
         }
 
         async function sendAction(action) {
-    const resEl = document.getElementById('result');
-    resEl.innerText = "Memproses...";
-    
-    const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-    if (!det) { resEl.innerText = "Wajah tidak terdeteksi!"; return; }
+            const resEl = document.getElementById('result');
+            resEl.innerText = "Memproses...";
+            
+            const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            if (!det) { resEl.innerText = "Wajah tidak terdeteksi!"; return; }
 
-    try {
-    const response = await fetch(GAS_URL, {
-        method: 'POST',
-        headers: { "Content-Type": "application/json" }, // Menambahkan header
-        mode: 'cors', // Menggunakan mode cors
-        body: JSON.stringify({ 
-            action: action, 
-            id: document.getElementById('name').value, 
-            descriptor: Array.from(det.descriptor) 
-        })
-    });
+            try {
+                // Menggunakan mode cors
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { "Content-Type": "application/json" },
+                    mode: 'cors',
+                    body: JSON.stringify({ 
+                        action: action, 
+                        id: document.getElementById('name').value, 
+                        descriptor: Array.from(det.descriptor) 
+                    })
+                });
 
-    if(action === 'scan') {
-        resEl.innerText = "Mencocokkan...";
-        const responseGet = await fetch(GAS_URL);
-        const data = await responseGet.json();
-        resEl.innerText = "Halo: " + data.nama;
-    } else {
-        alert("Data berhasil didaftarkan!");
-        resEl.innerText = "Siap digunakan!";
-    }
-} catch (err) {
-    resEl.innerText = "Error: " + err.message;
-}
+                if(action === 'scan') {
+                    resEl.innerText = "Mencocokkan...";
+                    const responseGet = await fetch(GAS_URL, { mode: 'cors' });
+                    const data = await responseGet.json();
+                    resEl.innerText = "Halo: " + data.nama;
+                } else {
+                    resEl.innerText = "Pendaftaran berhasil!";
+                }
+            } catch (err) {
+                resEl.innerText = "Error: Pastikan CORS sudah aktif di Apps Script.";
+            }
+        }
+        
+        // Jalankan inisialisasi
         init();
     </script>
 </body>
