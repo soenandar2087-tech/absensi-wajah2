@@ -46,38 +46,42 @@
             }
         }
 
-        async function sendAction(action) {
-            const resEl = document.getElementById('result');
-            resEl.innerText = "Memproses...";
-            
-            const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-            if (!det) { resEl.innerText = "Wajah tidak terdeteksi!"; return; }
+        async function scanAbsensi() {
+    status.innerText = "Memproses...";
+    const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                             .withFaceLandmarks()
+                             .withFaceDescriptor();
 
-            try {
-                // Menggunakan mode cors
-                await fetch(GAS_URL, {
-                    method: 'POST',
-                    headers: { "Content-Type": "application/json" },
-                    mode: 'cors',
-                    body: JSON.stringify({ 
-                        action: action, 
-                        id: document.getElementById('name').value, 
-                        descriptor: Array.from(det.descriptor) 
-                    })
-                });
+    if (!det) { status.innerText = "Wajah tidak ditemukan!"; return; }
 
-                if(action === 'scan') {
-                    resEl.innerText = "Mencocokkan...";
-                    const responseGet = await fetch(GAS_URL, { mode: 'cors' });
-                    const data = await responseGet.json();
-                    resEl.innerText = "Halo: " + data.nama;
-                } else {
-                    resEl.innerText = "Pendaftaran berhasil!";
-                }
-            } catch (err) {
-                resEl.innerText = "Error: Pastikan CORS sudah aktif di Apps Script.";
-            }
-        }
+    try {
+        // 1. Kirim data wajah (POST)
+        const response = await fetch(GAS_URL, {
+            method: 'POST',
+            mode: 'cors', // SANGAT PENTING
+            headers: { 
+                "Content-Type": "application/json" 
+            },
+            body: JSON.stringify({
+                action: 'scan',
+                descriptor: Array.from(det.descriptor)
+            })
+        });
+
+        // 2. Ambil hasilnya (GET)
+        status.innerText = "Sedang mencocokkan...";
+        const responseGet = await fetch(GAS_URL, { 
+            method: 'GET',
+            mode: 'cors' 
+        });
+        const data = await responseGet.json();
+        status.innerText = "Halo: " + data.nama;
+        
+    } catch (err) {
+        status.innerText = "Error: " + err.message;
+        console.error(err); // Lihat error detail di console (F12)
+    }
+}
         
         // Jalankan inisialisasi
         init();
