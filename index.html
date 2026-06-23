@@ -39,35 +39,33 @@
         }
 
         async function sendAction(action) {
-            const resEl = document.getElementById('result');
-            resEl.innerText = "Memproses...";
-            
-            const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-            if (!det) { resEl.innerText = "Wajah tidak terdeteksi!"; return; }
+    const resEl = document.getElementById('result');
+    resEl.innerText = "Memproses...";
+    
+    const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+    if (!det) { resEl.innerText = "Wajah tidak terdeteksi!"; return; }
 
-            try {
-                // 1. Kirim data ke GAS
-                await fetch(GAS_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify({ action: action, id: document.getElementById('name').value, descriptor: Array.from(det.descriptor) })
-                });
+    try {
+        // Menggunakan fetch standar (tanpa no-cors)
+        await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: action, id: document.getElementById('name').value, descriptor: Array.from(det.descriptor) })
+        });
 
-                // 2. Jika SCAN, ambil hasil (doGet)
-                if(action === 'scan') {
-                    resEl.innerText = "Mencocokkan...";
-                    const response = await fetch(GAS_URL);
-                    const nama = await response.text();
-                    resEl.innerText = "Halo: " + nama;
-                } else {
-                    alert("Data berhasil didaftarkan!");
-                    resEl.innerText = "Siap digunakan!";
-                }
-            } catch (err) {
-                resEl.innerText = "Error: Koneksi gagal.";
-                console.error(err);
-            }
+        if(action === 'scan') {
+            resEl.innerText = "Mencocokkan...";
+            const response = await fetch(GAS_URL);
+            const data = await response.json(); // Membaca sebagai JSON
+            resEl.innerText = "Halo: " + data.nama;
+        } else {
+            alert("Data berhasil didaftarkan!");
+            resEl.innerText = "Siap digunakan!";
         }
+    } catch (err) {
+        // Jika masih error, kemungkinan besar URL salah atau Permission kurang
+        resEl.innerText = "Error: Pastikan URL Deploy sudah benar.";
+    }
+}
         init();
     </script>
 </body>
