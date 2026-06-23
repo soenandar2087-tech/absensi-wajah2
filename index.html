@@ -46,25 +46,28 @@
     if (!det) { resEl.innerText = "Wajah tidak terdeteksi!"; return; }
 
     try {
-        // Menggunakan fetch standar (tanpa no-cors)
-        await fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: action, id: document.getElementById('name').value, descriptor: Array.from(det.descriptor) })
-        });
+    const response = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" }, // Menambahkan header
+        mode: 'cors', // Menggunakan mode cors
+        body: JSON.stringify({ 
+            action: action, 
+            id: document.getElementById('name').value, 
+            descriptor: Array.from(det.descriptor) 
+        })
+    });
 
-        if(action === 'scan') {
-            resEl.innerText = "Mencocokkan...";
-            const response = await fetch(GAS_URL);
-            const data = await response.json(); // Membaca sebagai JSON
-            resEl.innerText = "Halo: " + data.nama;
-        } else {
-            alert("Data berhasil didaftarkan!");
-            resEl.innerText = "Siap digunakan!";
-        }
-    } catch (err) {
-        // Jika masih error, kemungkinan besar URL salah atau Permission kurang
-        resEl.innerText = "Error: Pastikan URL Deploy sudah benar.";
+    if(action === 'scan') {
+        resEl.innerText = "Mencocokkan...";
+        const responseGet = await fetch(GAS_URL);
+        const data = await responseGet.json();
+        resEl.innerText = "Halo: " + data.nama;
+    } else {
+        alert("Data berhasil didaftarkan!");
+        resEl.innerText = "Siap digunakan!";
     }
+} catch (err) {
+    resEl.innerText = "Error: " + err.message;
 }
         init();
     </script>
