@@ -1,40 +1,72 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; background: #f4f4f9; padding: 20px; }
+        #video { width: 320px; height: 240px; border-radius: 10px; background: #333; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .controls { margin-top: 15px; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; background: #007bff; color: white; margin: 5px; }
+        button:hover { background: #0056b3; }
+        #result { margin-top: 20px; font-weight: bold; color: #333; }
+    </style>
 </head>
 <body>
-    <video id="video" width="400" autoplay muted playsinline></video><br>
-    <input type="text" id="name" placeholder="Nama Karyawan">
-    <button onclick="sendAction('register')">1. Daftar</button>
-    <button onclick="sendAction('scan')">2. Scan Absensi</button>
+    <h2>Sistem Absensi Wajah</h2>
+    <video id="video" autoplay muted playsinline></video><br>
+    <input type="text" id="name" placeholder="Nama Karyawan (Untuk Daftar)" style="padding: 8px; width: 250px;">
+    
+    <div class="controls">
+        <button onclick="sendAction('register')">1. Daftar Wajah</button>
+        <button onclick="sendAction('scan')">2. Scan Absensi</button>
+    </div>
+    
     <h2 id="result">Siap...</h2>
 
     <script>
         const video = document.getElementById('video');
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbw9o2R1Cd38rYTl-k4f5H2z3q6hVwM4B0faN-ik2JlaGHtZk0wa1xJZiHuvlXdc32z_/exec"; // PASTI GANTI INI!
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbw9o2R1Cd38rYTl-k4f5H2z3q6hVwM4B0faN-ik2JlaGHtZk0wa1xJZiHuvlXdc32z_/exec";
 
         async function init() {
+            document.getElementById('result').innerText = "Memuat AI...";
             await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
             await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
             await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             video.srcObject = stream;
+            document.getElementById('result').innerText = "Siap digunakan!";
         }
 
         async function sendAction(action) {
-            document.getElementById('result').innerText = "Memproses...";
+            const resEl = document.getElementById('result');
+            resEl.innerText = "Memproses...";
+            
             const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-            if (!det) { alert("Wajah tidak terlihat!"); return; }
+            if (!det) { resEl.innerText = "Wajah tidak terdeteksi!"; return; }
 
-            fetch(GAS_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify({ action: action, id: document.getElementById('name').value, descriptor: Array.from(det.descriptor) })
-            }).then(() => {
-                if(action === 'scan') fetch(GAS_URL).then(res => res.text()).then(txt => document.getElementById('result').innerText = "Halo: " + txt);
-                else alert("Data tersimpan!");
-            });
+            try {
+                // 1. Kirim data ke GAS
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ action: action, id: document.getElementById('name').value, descriptor: Array.from(det.descriptor) })
+                });
+
+                // 2. Jika SCAN, ambil hasil (doGet)
+                if(action === 'scan') {
+                    resEl.innerText = "Mencocokkan...";
+                    const response = await fetch(GAS_URL);
+                    const nama = await response.text();
+                    resEl.innerText = "Halo: " + nama;
+                } else {
+                    alert("Data berhasil didaftarkan!");
+                    resEl.innerText = "Siap digunakan!";
+                }
+            } catch (err) {
+                resEl.innerText = "Error: Koneksi gagal.";
+                console.error(err);
+            }
         }
         init();
     </script>
